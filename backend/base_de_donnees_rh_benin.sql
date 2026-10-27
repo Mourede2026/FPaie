@@ -18,10 +18,14 @@ CREATE TABLE statuts_agent (
   base_legale  TEXT
 );
 
-CREATE TABLE structures (          -- ministère, direction, service, centre
+CREATE TABLE structures (          -- hôpital, centre de santé, bureau de zone, direction…
   id         SERIAL PRIMARY KEY,
   code       TEXT UNIQUE NOT NULL,
   nom        TEXT NOT NULL,
+  type       TEXT NOT NULL CHECK (type IN ('HOPITAL','CENTRE_SANTE','BUREAU_ZONE','AUTRE')),
+  ville      TEXT,
+  ministere  TEXT,
+  actif      BOOLEAN NOT NULL DEFAULT TRUE,
   parent_id  INT REFERENCES structures(id)
 );
 
@@ -57,6 +61,9 @@ CREATE TABLE agents (
   email              TEXT,
   statut_id          SMALLINT NOT NULL REFERENCES statuts_agent(id),
   structure_id       INT REFERENCES structures(id),
+  -- ETAT : payé par l'État (pas de fiche de paie dans la plateforme)
+  -- STRUCTURE : salaire financé par la structure (fiche de paie générée ici)
+  financement        TEXT NOT NULL DEFAULT 'ETAT' CHECK (financement IN ('ETAT','STRUCTURE')),
   emploi             TEXT,
   grade_id           INT REFERENCES grades(id),           -- fonctionnaires
   salaire_base       NUMERIC(14,2),                       -- contractuels
@@ -280,6 +287,16 @@ CREATE TABLE lignes_paie (
   taux        NUMERIC(8,4),
   montant     NUMERIC(14,2) NOT NULL
 );
+
+-- Une paie ne peut être créée que pour un agent financé par sa structure
+CREATE OR REPLACE FUNCTION paie_reservee_structure() RETURNS trigger AS $$
+BEGIN
+  IF (SELECT financement FROM agents WHERE id = NEW.agent_id) <> 'STRUCTURE' THEN
+    RAISE EXCEPTION 'Fiche de paie réservée aux agents financés par leur structure';
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_paie_structure BEFORE INSERT ON paies FOR EACH ROW EXECUTE FUNCTION paie_reservee_structure();
 
 -- Figer la banque et le RIB au moment de la validation
 CREATE OR REPLACE FUNCTION fige_coordonnees_bancaires() RETURNS trigger AS $$

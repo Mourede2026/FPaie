@@ -41,6 +41,15 @@ Tous les onglets (Agents, Comptes, Regles, Demandes, Paies…) et les règles de
 3. **Déployer → Gérer les déploiements → crayon → Nouvelle version → Déployer** (même URL).
 4. Remplacez les fichiers du site sur GitHub par ceux du dossier.
 
+## Comptes, mots de passe et empreinte digitale
+
+- **Mots de passe visibles** : la colonne `mot_de_passe` de l’onglet `Comptes` contient le mot de passe **actuel** de chaque utilisateur, mis à jour dès qu’il le change. L’administrateur les voit aussi dans l’onglet **Comptes** de l’application (clic sur les points pour afficher).
+- **Modifier depuis le Sheet** : tapez le nouveau mot de passe (8 caractères min.) dans `mot_de_passe` : il est pris en compte immédiatement. Pour imposer un changement à la prochaine connexion, mettez `OUI` dans `doit_changer`. Pour bloquer un compte, mettez `NON` dans `actif`. Fonctionne si le script a été ouvert depuis le Sheet (Extensions → Apps Script).
+- **Mots de passe déjà choisis avant cette mise à jour** : ils n’ont pas été conservés, donc ils ne peuvent pas être affichés. Ils apparaîtront dès que l’agent le change, ou que vous en définissez un.
+- **Depuis l’application** : l’administrateur peut définir, générer, modifier, désactiver ou supprimer un compte.
+- **Empreinte digitale** : l’agent l’active dans « Mon compte ». Elle ne fonctionne qu’en HTTPS et si l’appareil a une empreinte ou un verrouillage d’écran. Un nouveau mot de passe défini par l’administrateur retire l’empreinte des appareils du compte.
+- **Protection du Sheet** : comme les mots de passe y sont lisibles, ne partagez ce Google Sheet avec personne d’autre que vous.
+
 ## Sécurité à respecter
 
 - Gardez le Google Sheet **privé** (partagé avec vous seul). Les agents n’y accèdent jamais directement : tout passe par l’API.
