@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F766E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RH Bénin">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Espace Personnel — RH Bénin</title>
+<style>
+:root{--bg:#F4F6F9;--card:#fff;--ink:#14213D;--mut:#5B6678;--line:#DCE2EA;--acc:#0F766E;--on:#fff;--ok:#157347;--okb:#E3F4EA;--wa:#9A5B00;--wab:#FFF1D6;--ko:#B3261E;--kob:#FBE4E2}
+@media(prefers-color-scheme:dark){:root{--bg:#0E1626;--card:#16213A;--ink:#EAF0FA;--mut:#9AA8C0;--line:#2A3858;--acc:#35B5A8;--on:#06201D;--ok:#6CD9A0;--okb:#173A2B;--wa:#F2B75B;--wab:#3A2D12;--ko:#FF9A92;--kob:#3F1A18}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{max-width:820px;margin:0 auto;padding:14px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+header img{width:38px;height:38px;border-radius:9px}
+header h1{font-size:17px;margin:0}header .sub{font-size:12px;color:var(--mut)}
+header .out{margin-left:auto}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px}
+.tabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--mut);padding:8px 13px;border-radius:99px;font:inherit;font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--acc);color:var(--on);border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{font-size:16px;margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--mut);margin-bottom:9px}
+input,select,textarea{display:block;width:100%;margin-top:3px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.btn{border:0;background:var(--acc);color:var(--on);font:inherit;font-weight:600;padding:9px 14px;border-radius:8px;cursor:pointer}
+.btn.s{background:none;border:1px solid var(--line);color:var(--ink)}.btn.ko{background:var(--kob);color:var(--ko)}.btn.sm{padding:6px 10px;font-size:13px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.it{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.it:first-of-type{border-top:0}.it b{display:block}.sub{color:var(--mut);font-size:13px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.w{background:var(--wab);color:var(--wa)}.o{background:var(--okb);color:var(--ok)}.k{background:var(--kob);color:var(--ko)}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}.kpi div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}.kpi strong{font-size:22px;display:block}
+.note{background:var(--wab);color:var(--wa);padding:8px 10px;border-radius:8px;font-size:13px;margin-bottom:10px}
+.login{max-width:380px;margin:9vh auto 0}.login img{width:72px;border-radius:16px;display:block;margin:0 auto 10px}.login h1{text-align:center;font-size:20px;margin:0 0 4px}.login p{text-align:center;color:var(--mut);margin:0 0 16px}
+.msg{padding:9px 11px;border-radius:8px;margin-bottom:10px;font-size:14px}.msg.e{background:var(--kob);color:var(--ko)}.msg.i{background:var(--okb);color:var(--ok)}
+.modal{position:fixed;inset:0;background:rgba(10,15,30,.6);display:none;align-items:center;justify-content:center;padding:14px;z-index:20}.modal.open{display:flex}
+.sheet{background:#fff;color:#14213D;border-radius:6px;width:100%;max-width:540px;max-height:92vh;overflow:auto;padding:22px}
+.sheet h3{margin:0 0 3px;font-size:17px;text-align:center}.sheet hr{border:0;border-top:2px solid #14213D;margin:10px 0 14px}
+.sheet table{width:100%;border-collapse:collapse;font-size:14px}.sheet td,.sheet th{padding:6px 4px;border-bottom:1px solid #E3E8F0;text-align:left}.sheet td:last-child{text-align:right;font-weight:600}
+.sign{margin-top:20px;text-align:right;font-size:12px;color:#445}.sign svg{display:block;margin-left:auto}
+.scroll{overflow-x:auto}
+@media print{body *{visibility:hidden}.sheet,.sheet *{visibility:visible}.modal{position:static;background:none;padding:0}.sheet{position:absolute;left:0;top:0;max-width:none;width:100%}.noprint{display:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<script src="config.js"></script>
+<script>
+var MOIS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+var U=null,TAB="",D={},MSG=null;
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function fd(s){if(!s)return"";var p=String(s).slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0]}
+function fm(n){return Number(n||0).toLocaleString("fr-FR")+" F"}
+function pill(s){var m={VALIDEE:["o","Validée"],REFUSEE:["k","Refusée"],SOUMISE:["w","En attente RH"],ANNULEE:["k","Annulée"],VALIDE:["o","Validé"],SUSPENDU:["k","Suspendu"],EN_ATTENTE:["w","À décider"]}[s]||["w",s];return'<span class="pill '+m[0]+'">'+m[1]+'</span>'}
+function call(action,data){
+  if(!window.RH_CONFIG||!RH_CONFIG.API_URL||RH_CONFIG.API_URL.indexOf("http")!==0)return Promise.reject(new Error("L’adresse de l’API n’est pas configurée (fichier config.js)."));
+  return fetch(RH_CONFIG.API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({action:action,token:U&&U.token},data||{}))})
+   .then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.erreur);return j.data});
+}
+function flash(t,err){MSG={t:t,e:err};render()}
+function run(p,ok){return p.then(function(r){if(ok)MSG={t:ok};return r}).catch(function(e){MSG={t:e.message,e:1};if(/Session expirée/.test(e.message)){U=null;sessionStorage.clear()}}).then(function(r){return r})}
+function closeM(){$("modal").classList.remove("open")}
+$("modal").onclick=function(e){if(e.target==this)closeM()};
+function msgHtml(){var h=MSG?'<div class="msg '+(MSG.e?"e":"i")+'">'+esc(MSG.t)+'</div>':"";MSG=null;return h}
+
+/* ----- Connexion ----- */
+function loginView(){
+  $("app").innerHTML='<div class="login"><img src="icons/icon-192.png" alt=""><h1>Espace Personnel</h1><p>Connectez-vous à votre compte</p><div id="m">'+msgHtml()+'</div><div class="card"><label>Identifiant<input id="id" autocomplete="username" autocapitalize="off"></label><label>Mot de passe<input id="pw" type="password" autocomplete="current-password"></label><button class="btn" id="go" style="width:100%">Se connecter</button></div></div>';
+  var go=function(){$("go").disabled=true;call("login",{identifiant:$("id").value.trim(),mdp:$("pw").value}).then(function(u){U=u;sessionStorage.setItem("u",JSON.stringify(u));start()}).catch(function(e){MSG={t:e.message,e:1};loginView()})};
+  $("go").onclick=go;$("pw").onkeydown=function(e){if(e.key=="Enter")go()};
+}
+function start(){
+  var t=[];if(U.agent_id)t.push(["acc","Accueil"],["dem","Demandes"],["dos","Dossier"],["pai","Mes fiches de paie"]);
+  if(U.role=="RH"||U.role=="ADMIN")t.push(["val","Validations"],["agt","Agents"]);
+  if(U.role=="COMPTABLE"||U.role=="ADMIN")t.push(["cpt","Paie du mois"],["ban","États par banque"]);
+  t.push(["cpe","Mon compte"]);U.tabs=t;TAB=U.doit_changer?"cpe":t[0][0];load()}
+function load(){
+  var jobs=[];
+  if(TAB=="acc"||TAB=="dem")jobs.push(call("moi").then(function(r){D.moi=r}),call("mes_demandes").then(function(r){D.dem=r}));
+  if(TAB=="dos")jobs.push(call("mes_pieces").then(function(r){D.pieces=r}),call("types_piece").then(function(r){D.tp=r}));
+  if(TAB=="pai"){D.pf=D.pf||{de:new Date().getFullYear()*12+1,a:new Date().getFullYear()*12+12};jobs.push(call("mes_paies",D.pf).then(function(r){D.paies=r}))}
+  if(TAB=="val")jobs.push(call("rh_demandes",{}).then(function(r){D.rhd=r}));
+  if(TAB=="agt")jobs.push(call("rh_agents").then(function(r){D.agts=r}),call("rh_statuts").then(function(r){D.sts=r}));
+  if(TAB=="cpt"||TAB=="ban")jobs.push(call("cpt_periodes").then(function(r){D.pers=r;if(!D.per&&r[0])D.per=r[0].id;return D.per&&(TAB=="cpt"?call("cpt_paies",{periode_id:D.per}).then(function(x){D.cp=x}):call("cpt_etat_banque",{periode_id:D.per}).then(function(x){D.eb=x}))}));
+  Promise.all(jobs).catch(function(e){MSG={t:e.message,e:1};if(/Session/.test(e.message)){U=null}}).then(render)}
+function render(){if(!U)return loginView();
+  var h='<header><img src="icons/icon-192.png" alt=""><div><h1>Espace Personnel</h1><div class="sub">'+esc(U.nom)+' · '+esc(U.role)+'</div></div><button class="btn s sm out" id="lo">Quitter</button></header>';
+  h+='<div class="tabs">'+U.tabs.map(function(t){return'<button data-t="'+t[0]+'" class="'+(t[0]==TAB?"on":"")+'">'+t[1]+'</button>'}).join("")+'</div>'+msgHtml();
+  h+=({acc:vAcc,dem:vDem,dos:vDos,pai:vPai,val:vVal,agt:vAgt,cpt:vCpt,ban:vBan,cpe:vCpe}[TAB]||vAcc)();
+  $("app").innerHTML=h;$("lo").onclick=function(){U=null;sessionStorage.clear();loginView()};
+  document.querySelectorAll("[data-t]").forEach(function(b){b.onclick=function(){TAB=b.dataset.t;load()}});
+  bind()}
+function act(sel,fn){document.querySelectorAll(sel).forEach(function(b){b.onclick=function(){fn(b)}})}
+function after(p,ok){run(p,ok).then(load)}
+
+/* ----- Agent ----- */
+function vAcc(){var m=D.moi||{},a=m.agent||{},c=m.conge_annuel||{acquis:30,pris:0,reste:30},d=D.dem||[];
+  return'<div class="kpi"><div><strong>'+c.reste+'</strong><span class="sub">jours de congé annuel restants</span></div><div><strong>'+d.filter(function(x){return x.statut=="SOUMISE"}).length+'</strong><span class="sub">demandes en attente</span></div><div><strong>'+d.filter(function(x){return x.statut=="VALIDEE"}).length+'</strong><span class="sub">validées</span></div></div><div class="card"><h2>Ma fiche</h2><div class="it"><span>Matricule</span><b>'+esc(a.matricule)+'</b></div><div class="it"><span>Statut</span><b>'+esc(a.statut)+'</b></div><div class="it"><span>Emploi</span><b>'+esc(a.emploi)+'</b></div><div class="it"><span>Structure</span><b>'+esc(a.structure)+'</b></div><div class="it"><span>Prise de service</span><b>'+fd(a.date_prise_service)+'</b></div></div>'}
+function vDem(){var m=D.moi||{types:[]},d=D.dem||[];
+  var opts=m.types.map(function(t){return'<option value="'+t.code+'">'+esc(t.libelle)+'</option>'}).join("");
+  var h='<div class="card"><h2>Nouvelle demande</h2><label>Nature<select id="dt">'+opts+'</select></label><div id="rule" class="note"></div><div class="g2"><label>Du<input type="date" id="dd"></label><label>Au<input type="date" id="df"></label></div><label id="le" style="display:none">Date de l’événement<input type="date" id="de"></label><label>Motif / justificatif<textarea id="dm" rows="2"></textarea></label><button class="btn" id="ds">Envoyer la demande</button></div>';
+  h+='<div class="card"><h2>Mes demandes</h2>'+(d.length?d.map(function(r){return'<div class="it"><div><b>'+esc(tl(r.type))+'</b><span class="sub">'+fd(r.debut)+' au '+fd(r.fin)+' · '+r.nb_jours+' j'+(r.motif_refus?' · '+esc(r.motif_refus):'')+'</span></div><div class="acts">'+pill(r.statut)+(r.statut=="VALIDEE"?'<button class="btn sm" data-ti="'+r.id+'">Titre PDF</button>':'')+(r.statut=="SOUMISE"?'<button class="btn s sm" data-an="'+r.id+'">Annuler</button>':'')+'</div></div>'}).join(""):'<div class="sub">Aucune demande pour le moment.</div>')+'</div>';return h}
+function tl(c){var t=((D.moi||{}).types||[]).filter(function(x){return x.code==c})[0];return t?t.libelle:c}
+function ruleTxt(){var t=(D.moi.types||[]).filter(function(x){return x.code==$("dt").value})[0]||{};$("rule").style.display="";$("rule").textContent=(t.duree?"Durée maximale : "+t.duree+" jour(s). ":"")+(t.base||"")+(t.a_verifier=="OUI"?" (règle à confirmer par la DRH)":"");$("le").style.display=t.famille=="PERMISSION"?"block":"none"}
+function showTitre(id){call("titre",{id:id}).then(function(r){var d=r.demande,a=r.agent,perm=r.famille=="PERMISSION";
+  $("sheet").innerHTML='<h3>TITRE DE '+(perm?"PERMISSION":"CONGÉ")+'</h3><div style="text-align:center;font-size:12px">N° '+esc(d.numero_titre)+'</div><hr><table><tr><td>Agent</td><td>'+esc(a.prenoms+" "+a.nom)+'</td></tr><tr><td>Matricule</td><td>'+esc(a.matricule)+'</td></tr><tr><td>Emploi</td><td>'+esc(a.emploi)+'</td></tr><tr><td>Structure</td><td>'+esc(a.structure)+'</td></tr><tr><td>Nature</td><td>'+esc(r.type)+'</td></tr><tr><td>Du</td><td>'+fd(d.debut)+'</td></tr><tr><td>Au</td><td>'+fd(d.fin)+'</td></tr><tr><td>Durée</td><td>'+d.nb_jours+' jour(s)</td></tr></table><div class="sign">Le Directeur des Ressources Humaines<svg width="150" height="46" viewBox="0 0 150 46" aria-hidden="true"><path d="M6 32c14-30 22-28 20-8-1 12 10 4 16-6 4-6 6 6 14 2 8-5 12-9 20-2 6 5 14 0 24-8" fill="none" stroke="#1F3A8A" stroke-width="2.2" stroke-linecap="round"/></svg>Signé électroniquement le '+fd(d.traite_le)+'</div><div class="acts noprint" style="margin-top:16px"><button class="btn" onclick="window.print()">Télécharger en PDF</button><button class="btn s" onclick="closeM()">Fermer</button></div>';
+  $("modal").classList.add("open")}).catch(function(e){flash(e.message,1)})}
+function vDos(){var p=D.pieces||[],tp=D.tp||[];
+  return'<div class="card"><h2>Pièces de mon dossier</h2>'+(p.length?p.map(function(x){return'<div class="it"><div><b>'+esc(x.intitule)+'</b><span class="sub">'+esc(x.type_libelle)+' · ajouté le '+fd(x.ajoute_le)+'</span></div><button class="btn s sm" data-po="'+x.id+'">Ouvrir</button></div>'}).join(""):'<div class="sub">Aucune pièce enregistrée. Ajoutez votre première pièce ci-dessous.</div>')+'</div><div class="card"><h2>Ajouter une pièce</h2><label>Type<select id="pt">'+tp.map(function(t){return'<option value="'+t.code+'">'+esc(t.libelle)+'</option>'}).join("")+'</select></label><label>Intitulé<input id="pi"></label><label>Fichier (3 Mo max)<input type="file" id="pf" accept=".pdf,.jpg,.jpeg,.png"></label><button class="btn" id="pa">Enregistrer la pièce</button></div>'}
+function vPai(){var f=D.pf,y=new Date().getFullYear(),ys=[y,y-1,y-2];
+  var all=[];ys.slice().reverse().forEach(function(a){MOIS.forEach(function(m,i){all.push([a*12+i+1,m+" "+a])})});var o=function(v){return all.map(function(x){return'<option value="'+x[0]+'"'+(x[0]==v?" selected":"")+'>'+x[1]+'</option>'}).join("")};
+  var p=D.paies||[];
+  return'<div class="card"><h2>Mes fiches de paie</h2><div class="g2"><label>De<select id="p1">'+o(f.de)+'</select></label><label>À<select id="p2">'+o(f.a)+'</select></label></div><button class="btn s sm" id="pg">Afficher</button></div><div class="card">'+(p.length?p.map(function(x,i){return'<div class="it"><div><b>'+MOIS[x.mois-1]+' '+x.annee+'</b><span class="sub">Net : '+fm(x.net)+'</span></div><button class="btn sm" data-fp="'+i+'">Voir / PDF</button></div>'}).join(""):'<div class="sub">Aucune fiche de paie validée sur cette période.</div>')+'</div>'}
+function showPaie(x){$("sheet").innerHTML='<h3>FICHE DE PAIE — '+MOIS[x.mois-1].toUpperCase()+' '+x.annee+'</h3><div style="text-align:center;font-size:12px">'+esc(x.agent)+' · '+esc(x.matricule)+'</div><hr><table><tr><td>Emploi</td><td>'+esc(x.emploi)+'</td></tr><tr><td>Salaire brut</td><td>'+fm(x.brut)+'</td></tr><tr><td>Retenues</td><td>− '+fm(x.retenues)+'</td></tr><tr><td>Net à payer</td><td>'+fm(x.net)+'</td></tr></table><div class="acts noprint" style="margin-top:16px"><button class="btn" onclick="window.print()">Télécharger en PDF</button><button class="btn s" onclick="closeM()">Fermer</button></div>';$("modal").classList.add("open")}
+function vCpe(){return(U.doit_changer?'<div class="note">Pour votre sécurité, choisissez un nouveau mot de passe avant de continuer.</div>':"")+'<div class="card"><h2>Modifier mes identifiants</h2><label>Mot de passe actuel<input type="password" id="c0" autocomplete="current-password"></label><label>Nouvel identifiant (facultatif)<input id="c1" autocapitalize="off"></label><label>Nouveau mot de passe (8 caractères min.)<input type="password" id="c2" autocomplete="new-password"></label><button class="btn" id="cs">Enregistrer</button></div>'}
+
+/* ----- RH ----- */
+function vVal(){var d=D.rhd||[],w=d.filter(function(x){return x.statut=="SOUMISE"});
+  return'<div class="card"><h2>Demandes à valider ('+w.length+')</h2>'+(w.length?w.map(function(r){return'<div class="it"><div><b>'+esc(r.agent)+' — '+esc(r.type_libelle)+'</b><span class="sub">'+fd(r.debut)+' au '+fd(r.fin)+' · '+r.nb_jours+' j · '+esc(r.motif)+'</span></div><div class="acts"><button class="btn sm" data-ok="'+r.id+'">Valider</button><button class="btn ko sm" data-no="'+r.id+'">Refuser</button></div></div>'}).join(""):'<div class="sub">Tout est traité.</div>')+'</div><div class="card"><h2>Historique</h2>'+d.filter(function(x){return x.statut!="SOUMISE"}).slice(0,30).map(function(r){return'<div class="it"><div><b>'+esc(r.agent)+'</b><span class="sub">'+esc(r.type_libelle)+' · '+fd(r.debut)+'</span></div>'+pill(r.statut)+'</div>'}).join("")+'</div>'}
+function vAgt(){var a=D.agts||[],s=D.sts||[],f=function(id,l,t){return'<label>'+l+'<input id="'+id+'" '+(t||"")+'></label>'};
+  return'<div class="card"><h2>Agents ('+a.length+')</h2>'+a.map(function(x){return'<div class="it"><div><b>'+esc(x.nom+" "+x.prenoms)+'</b><span class="sub">'+esc(x.matricule)+' · '+esc(x.statut)+'</span></div><button class="btn s sm" data-rs="'+x.id+'">Nouveau mot de passe</button></div>'}).join("")+'</div><div class="card"><h2>Créer un agent</h2><div class="g2">'+f("a1","Matricule")+f("a2","Nom")+f("a3","Prénoms")+'<label>Statut<select id="a4">'+s.map(function(t){return'<option value="'+t.code+'">'+esc(t.libelle)+'</option>'}).join("")+'</select></label>'+f("a5","Emploi")+f("a6","Structure")+f("a7","Prise de service",'type="date"')+f("a8","Salaire de base (F)",'type="number"')+f("a9","Banque (code)")+f("a10","RIB")+'</div><button class="btn" id="ac">Créer l’agent et son compte</button></div>'}
+
+/* ----- Comptable ----- */
+function perSel(){var y=new Date().getFullYear();return'<div class="card"><h2>Période</h2><label><select id="ps">'+(D.pers||[]).map(function(p){return'<option value="'+p.id+'"'+(p.id==D.per?" selected":"")+'>'+MOIS[p.mois-1]+' '+p.annee+' — '+p.statut+'</option>'}).join("")+'</select></label><div class="g2"><label>Ouvrir un mois<select id="om">'+MOIS.map(function(m,i){return'<option value="'+(i+1)+'"'+(i==new Date().getMonth()?" selected":"")+'>'+m+'</option>'}).join("")+'</select></label><label>Année<input id="oa" type="number" value="'+y+'"></label></div><button class="btn s sm" id="oo">Ouvrir la période</button></div>'}
+function vCpt(){var p=(D.pers||[]).filter(function(x){return x.id==D.per})[0],l=D.cp||[],open=p&&p.statut=="EN_VERIFICATION";
+  return perSel()+(p?'<div class="card"><h2>Décisions de paie</h2><div class="note">Brut et retenues sont modifiables tant que la période est en vérification. Le calcul détaillé suivra le canevas officiel de la fiche de paie.</div>'+l.map(function(x){return'<div class="it" style="align-items:flex-start"><div style="flex:1"><b>'+esc(x.agent)+'</b><span class="sub">'+esc(x.matricule)+(x.motif?' · '+esc(x.motif):'')+'</span><div class="g2" style="margin-top:6px"><input id="b'+x.id+'" type="number" value="'+x.brut+'" '+(open?"":"disabled")+' aria-label="Brut"><input id="r'+x.id+'" type="number" value="'+x.retenues+'" '+(open?"":"disabled")+' aria-label="Retenues"></div><span class="sub">Net : '+fm(x.net)+'</span></div><div class="acts" style="flex-direction:column;align-items:flex-end">'+pill(x.decision)+(open?'<button class="btn sm" data-pv="'+x.id+'">Valider</button><button class="btn ko sm" data-ps="'+x.id+'">Suspendre</button>':'')+'</div></div>'}).join("")+(open?'<div style="margin-top:12px"><button class="btn" id="pc">Clôturer et valider la période</button></div>':"")+'</div>':"")}
+function vBan(){var e=D.eb||[];
+  return perSel()+(e.length?e.map(function(b){return'<div class="card"><h2>'+esc(b.banque)+' — '+fm(b.total)+'</h2><div class="scroll"><table style="width:100%;font-size:14px"><tr><th align="left">Matricule</th><th align="left">Agent</th><th align="left">RIB</th><th align="right">Net</th></tr>'+b.lignes.map(function(l){return'<tr><td>'+esc(l.matricule)+'</td><td>'+esc(l.nom)+'</td><td>'+esc(l.rib)+'</td><td align="right">'+fm(l.net)+'</td></tr>'}).join("")+'</table></div></div>'}).join("")+'<button class="btn" id="ex">Télécharger le fichier Excel (CSV)</button> <button class="btn s" onclick="window.print()">Imprimer</button>':'<div class="card sub">Aucun paiement validé pour cette période.</div>')}
+
+/* ----- Liaisons ----- */
+function bind(){
+  var v=function(id){var e=$(id);return e?e.value:""};
+  if($("dt")){ruleTxt();$("dt").onchange=ruleTxt;$("ds").onclick=function(){after(call("demande_creer",{type:v("dt"),debut:v("dd"),fin:v("df"),date_evenement:v("de"),motif:v("dm")}),"Demande envoyée aux RH")}}
+  act("[data-ti]",function(b){showTitre(b.dataset.ti)});act("[data-an]",function(b){after(call("demande_annuler",{id:b.dataset.an}),"Demande annulée")});
+  if($("pa"))$("pa").onclick=function(){var f=$("pf").files[0];if(!f)return flash("Choisissez un fichier",1);if(f.size>3e6)return flash("Fichier trop lourd (3 Mo max)",1);
+    var r=new FileReader();r.onload=function(){after(call("piece_ajouter",{type:v("pt"),intitule:v("pi"),nom:f.name,mime:f.type,base64:r.result.split(",")[1]}),"Pièce enregistrée")};r.readAsDataURL(f)};
+  act("[data-po]",function(b){call("piece_contenu",{id:b.dataset.po}).then(function(r){var a=document.createElement("a");a.href="data:"+r.mime+";base64,"+r.base64;a.download=r.nom;a.click()}).catch(function(e){flash(e.message,1)})});
+  if($("pg"))$("pg").onclick=function(){D.pf={de:+v("p1"),a:+v("p2")};load()};act("[data-fp]",function(b){showPaie(D.paies[+b.dataset.fp])});
+  if($("cs"))$("cs").onclick=function(){run(call("changer_identifiants",{mdp_actuel:v("c0"),nouvel_identifiant:v("c1"),nouveau_mdp:v("c2")}),"Identifiants modifiés").then(function(r){if(r){U.doit_changer=false;if(v("c1"))U.identifiant=v("c1")}render()})};
+  act("[data-ok]",function(b){after(call("rh_decider",{id:b.dataset.ok,decision:"VALIDEE"}),"Demande validée")});
+  act("[data-no]",function(b){var m=prompt("Motif du refus :");if(m)after(call("rh_decider",{id:b.dataset.no,decision:"REFUSEE",motif:m}),"Demande refusée")});
+  if($("ac"))$("ac").onclick=function(){run(call("rh_agent_creer",{matricule:v("a1"),nom:v("a2"),prenoms:v("a3"),statut:v("a4"),emploi:v("a5"),structure:v("a6"),date_prise_service:v("a7"),salaire_base:v("a8"),banque:v("a9"),rib:v("a10")})).then(function(r){if(r)alert("Compte créé.\nIdentifiant : "+r.identifiant+"\nMot de passe temporaire : "+r.mot_de_passe_temporaire+"\n\nNotez-le et transmettez-le à l’agent.");load()})};
+  act("[data-rs]",function(b){if(confirm("Générer un nouveau mot de passe temporaire ?"))run(call("rh_reset_mdp",{agent_id:b.dataset.rs})).then(function(r){if(r)alert("Identifiant : "+r.identifiant+"\nMot de passe temporaire : "+r.mot_de_passe_temporaire);load()})});
+  if($("ps"))$("ps").onchange=function(){D.per=v("ps");load()};
+  if($("oo"))$("oo").onclick=function(){run(call("cpt_periode_ouvrir",{annee:v("oa"),mois:v("om")}),"Période ouverte").then(function(r){if(r)D.per=r;load()})};
+  act("[data-pv]",function(b){var id=b.dataset.pv;run(call("cpt_paie_modifier",{id:id,brut:v("b"+id),retenues:v("r"+id)})).then(function(ok){if(!ok)return;return run(call("cpt_decider",{id:id,decision:"VALIDE"}),"Paie validée")}).then(load)});
+  act("[data-ps]",function(b){var m=prompt("Motif de la suspension :");if(m)after(call("cpt_decider",{id:b.dataset.ps,decision:"SUSPENDU",motif:m}),"Paie suspendue")});
+  if($("pc"))$("pc").onclick=function(){if(confirm("Clôturer la période ? Les montants ne seront plus modifiables."))after(call("cpt_periode_valider",{periode_id:D.per}),"Période validée : les agents peuvent télécharger leur fiche")};
+  if($("ex"))$("ex").onclick=function(){var s="Banque;Matricule;Agent;RIB;Net\n";D.eb.forEach(function(b){b.lignes.forEach(function(l){s+=[b.banque,l.matricule,l.nom,l.rib,l.net].join(";")+"\n"})});var a=document.createElement("a");a.href="data:text/csv;charset=utf-8,\ufeff"+encodeURIComponent(s);a.download="etat_paiement.csv";a.click()};
+}
+try{var s=sessionStorage.getItem("u");if(s){U=JSON.parse(s);start()}else loginView()}catch(e){loginView()}
+if("serviceWorker"in navigator)window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js")});
+</script>
+</body>
+</html>
