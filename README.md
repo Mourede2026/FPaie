@@ -34,6 +34,13 @@ Tous les onglets (Agents, Comptes, Regles, Demandes, Paies…) et les règles de
 - **Android (Chrome)** : menu ⋮ → *Installer l’application*.
 - **iPhone (Safari)** : Partager → *Sur l’écran d’accueil*.
 
+## Mise à jour (si le script est déjà installé)
+
+1. Remplacez le code dans Apps Script par le nouveau `Code.gs`, puis enregistrez.
+2. Relancez la fonction **setup** : elle ajoute les nouvelles colonnes (CNSS, grade, indice, indemnités…), les rubriques du bulletin et l’onglet `Parametres`, sans effacer vos données ni recréer les comptes.
+3. **Déployer → Gérer les déploiements → crayon → Nouvelle version → Déployer** (même URL).
+4. Remplacez les fichiers du site sur GitHub par ceux du dossier.
+
 ## Sécurité à respecter
 
 - Gardez le Google Sheet **privé** (partagé avec vous seul). Les agents n’y accèdent jamais directement : tout passe par l’API.
@@ -50,4 +57,11 @@ Tous les onglets (Agents, Comptes, Regles, Demandes, Paies…) et les règles de
 
 ## Paie
 
-Le comptable ouvre un mois : une ligne est créée par agent actif (brut = salaire de base). Il peut ajuster brut et retenues, puis **valide ou suspend** chaque agent avec motif, et clôture la période. Les agents voient alors leur fiche. Le calcul détaillé (rubriques, indices) sera branché dès réception du canevas officiel.
+Le bulletin reprend le modèle officiel du Ministère de la Santé (Bulletin de paie, septembre 2025) : en-tête, identité, N° CNSS, grade, indice, corps, service, tableau Code / Élément payé / Gain / Retenue / Rappel, banque et compte, net à payer et montant en lettres.
+
+Calcul (onglet `Parametres`, modifiable) :
+- Net = gains − ITS − part ouvrière CNSS − ORTB + rappel.
+- Part ouvrière CNSS 3,6 % et part patronale 16,4 % du brut (déduits du bulletin modèle). La part patronale est affichée en « Retenue » mais n’est pas déduite du net.
+- ITS : barème progressif de l’onglet `Parametres` (`bareme_its`), arrondi à 100 F. **À faire confirmer par la DGI**, et le comptable peut saisir l’ITS à la main.
+
+Le comptable ouvre un mois : une ligne est créée par agent actif à partir de sa fiche. Il ajuste si besoin, puis **valide ou suspend** chaque agent avec motif et clôture la période. Les agents voient alors leur bulletin et l’impriment en PDF.

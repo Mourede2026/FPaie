@@ -7,7 +7,7 @@ var SHEET_ID = '1b6CWRqEkgcdfD0881oTJJWW9Hv2GwQ_hLIkvEIjiAx8';
 var DOSSIER_DRIVE = 'Dossiers_RH_Benin';
 
 var SCHEMA = {
-  Agents: ['id','matricule','nom','prenoms','sexe','date_naissance','statut','structure','emploi','grade','salaire_base','date_prise_service','banque','rib','ifu','telephone','email','actif'],
+  Agents: ['id','matricule','nom','prenoms','sexe','date_naissance','statut','structure','emploi','grade','salaire_base','date_prise_service','banque','rib','ifu','telephone','email','actif','numero_cnss','indice','sit_mat','enfants','corps','ministere','service','ville','ind_residence','ind_logement','ind_risque','prime_qualif','prime_rendement'],
   Comptes: ['id','agent_id','identifiant','mdp_hash','sel','role','doit_changer','actif','dernier_acces'],
   Statuts: ['code','libelle'],
   TypesAbsence: ['code','libelle','famille','justificatif'],
@@ -17,8 +17,9 @@ var SCHEMA = {
   Pieces: ['id','agent_id','type','intitule','fichier_id','nom_fichier','mime','ajoute_le'],
   Rubriques: ['code','libelle','sens','ordre'],
   Periodes: ['id','annee','mois','statut'],
-  Paies: ['id','periode_id','agent_id','brut','retenues','net','decision','motif','banque','rib','decide_par','decide_le'],
+  Paies: ['id','periode_id','agent_id','brut','retenues','net','decision','motif','banque','rib','decide_par','decide_le','lignes','rappel','infos'],
   Banques: ['code','nom'],
+  Parametres: ['cle','valeur'],
   Journal: ['date','compte_id','action','detail']
 };
 
@@ -135,6 +136,35 @@ function controle(ag, q) {
   return nb;
 }
 
+
+/* ---------- Calcul de la paie (modèle : bulletin du Ministère de la Santé) ---------- */
+// Net = gains - ITS - part ouvrière CNSS - ORTB + rappel.
+// La part patronale CNSS est AFFICHÉE dans la colonne « Retenue » mais n'est PAS déduite du net.
+var GAINS = ['SOLDE_BRUTE', 'IND_RESIDENCE', 'IND_LOGEMENT', 'IND_RISQUE', 'PRIME_QUALIF', 'PRIME_RENDEMENT'];
+function params() { var P = {}; rows('Parametres').forEach(function (r) { P[r.cle] = r.valeur; }); return P; }
+function itsBareme(base, P) {
+  var B = JSON.parse(P.bareme_its || '[]'), prev = 0, imp = 0;
+  for (var i = 0; i < B.length; i++) {
+    var plafond = +B[i][0] || Infinity, taux = +B[i][1] / 100;
+    if (base > prev) imp += (Math.min(base, plafond) - prev) * taux;
+    prev = plafond; if (base <= plafond) break;
+  }
+  var a = +P.arrondi_its || 1; return Math.floor(imp / a) * a;
+}
+function calcPaie(l, rappel, P, itsManuel) {
+  var g = 0;
+  GAINS.forEach(function (c) { l[c] = Math.round(+l[c] || 0); g += l[c]; });
+  l.CNSS_OUV = Math.round(g * (+P.taux_cnss_ouvrier) / 100);
+  l.CNSS_PAT = Math.round(g * (+P.taux_cnss_patronal) / 100);
+  l.ITS = (itsManuel === '' || itsManuel == null) ? itsBareme(g, P) : Math.round(+itsManuel);
+  l.ORTB = Math.round(+l.ORTB || 0);
+  var ret = l.ITS + l.CNSS_OUV + l.ORTB, rap = Math.round(+rappel || 0);
+  return { lignes: l, brut: g, retenues: ret, rappel: rap, net: g - ret + rap };
+}
+function lignesAgent(a) {
+  return { SOLDE_BRUTE: a.salaire_base, IND_RESIDENCE: a.ind_residence, IND_LOGEMENT: a.ind_logement, IND_RISQUE: a.ind_risque, PRIME_QUALIF: a.prime_qualif, PRIME_RENDEMENT: a.prime_rendement, ORTB: 0 };
+}
+
 /* ---------- Actions ---------- */
 var ALL = null, RH = ['RH', 'ADMIN'], CPT = ['COMPTABLE', 'ADMIN'];
 var ACTIONS = {
@@ -206,14 +236,17 @@ var ACTIONS = {
   } },
   mes_paies: { roles: ALL, fn: function (u, q) {
     var P = {}; rows('Periodes').forEach(function (p) { P[p.id] = p; });
-    var d = +q.de, a = +q.a;
-    return rows('Paies').filter(function (x) {
+    var d = +q.de, a = +q.a, PA = params();
+    var fiches = rows('Paies').filter(function (x) {
       var p = P[x.periode_id];
       return x.agent_id === u.agent_id && x.decision === 'VALIDE' && p && ['VALIDEE', 'PAYEE', 'CLOTUREE'].indexOf(p.statut) >= 0 && (+p.annee * 12 + +p.mois) >= d && (+p.annee * 12 + +p.mois) <= a;
     }).map(function (x) {
-      var p = P[x.periode_id], ag = find('Agents', 'id', x.agent_id);
-      return { id: x.id, annee: p.annee, mois: p.mois, brut: +x.brut, retenues: +x.retenues, net: +x.net, banque: x.banque, agent: ag.prenoms + ' ' + ag.nom, matricule: ag.matricule, emploi: ag.emploi, structure: ag.structure };
-    }).sort(function (x, y) { return (y.annee * 12 + +y.mois) - (x.annee * 12 + +x.mois); });
+      var p = P[x.periode_id], ag = find('Agents', 'id', x.agent_id), b = find('Banques', 'code', x.banque);
+      return { id: x.id, annee: +p.annee, mois: +p.mois, brut: +x.brut, retenues: +x.retenues, net: +x.net, rappel: +x.rappel || 0, lignes: JSON.parse(x.lignes || '{}'), infos: x.infos || '',
+        banque: b ? b.nom : x.banque, rib: x.rib, lieu: ag.ville || PA.lieu_edition || '',
+        agent: { nom: ag.nom, prenoms: ag.prenoms, matricule: ag.matricule, numero_cnss: ag.numero_cnss, grade: ag.grade, indice: ag.indice, sit_mat: ag.sit_mat, enfants: ag.enfants, corps: ag.corps || ag.emploi, service: ag.service, ministere: ag.ministere, structure: ag.structure, ifu: ag.ifu, ville: ag.ville, telephone: ag.telephone } };
+    }).sort(function (x, y) { return (y.annee * 12 + y.mois) - (x.annee * 12 + x.mois); });
+    return { fiches: fiches, rubriques: rows('Rubriques') };
   } },
 
   /* ----- RH ----- */
@@ -241,10 +274,13 @@ var ACTIONS = {
     if (!q.matricule || !q.nom || !q.prenoms || !q.statut || !q.date_prise_service) throw new Error('Champs obligatoires manquants');
     if (find('Agents', 'matricule', q.matricule)) throw new Error('Matricule déjà existant');
     var id = nextId('Agents');
-    add('Agents', { id: id, matricule: q.matricule, nom: q.nom, prenoms: q.prenoms, sexe: q.sexe || '', date_naissance: q.date_naissance || '', statut: q.statut, structure: q.structure || '', emploi: q.emploi || '', grade: q.grade || '', salaire_base: q.salaire_base || 0, date_prise_service: q.date_prise_service, banque: q.banque || '', rib: q.rib || '', ifu: q.ifu || '', telephone: q.telephone || '', email: q.email || '', actif: 'OUI' });
+    add('Agents', { id: id, matricule: q.matricule, nom: q.nom, prenoms: q.prenoms, sexe: q.sexe || '', date_naissance: q.date_naissance || '', statut: q.statut, structure: q.structure || '', emploi: q.emploi || '', grade: q.grade || '', salaire_base: q.salaire_base || 0, date_prise_service: q.date_prise_service, banque: q.banque || '', rib: q.rib || '', ifu: q.ifu || '', telephone: q.telephone || '', email: q.email || '', actif: 'OUI',
+      numero_cnss: q.numero_cnss || '', indice: q.indice || '', sit_mat: q.sit_mat || '', enfants: q.enfants || 0, corps: q.corps || '', ministere: q.ministere || '', service: q.service || '', ville: q.ville || '',
+      ind_residence: q.ind_residence || 0, ind_logement: q.ind_logement || 0, ind_risque: q.ind_risque || 0, prime_qualif: q.prime_qualif || 0, prime_rendement: q.prime_rendement || 0 });
     var pw = newCompte(id, q.matricule.toLowerCase(), 'AGENT');
     log(u, 'agent_creer', q.matricule); return { identifiant: q.matricule.toLowerCase(), mot_de_passe_temporaire: pw };
   } },
+  banques: { roles: ALL, fn: function () { return rows('Banques'); } },
   rh_reset_mdp: { roles: RH, fn: function (u, q) {
     var c = rows('Comptes').filter(function (x) { return x.agent_id === String(q.agent_id); })[0];
     if (!c) throw new Error('Compte introuvable');
@@ -257,26 +293,28 @@ var ACTIONS = {
   cpt_periodes: { roles: CPT, fn: function () { return rows('Periodes').reverse(); } },
   cpt_periode_ouvrir: { roles: CPT, fn: function (u, q) {
     if (rows('Periodes').some(function (p) { return p.annee === String(q.annee) && p.mois === String(q.mois); })) throw new Error('Période déjà ouverte');
-    var id = nextId('Periodes');
+    var id = nextId('Periodes'), P = params();
     add('Periodes', { id: id, annee: q.annee, mois: q.mois, statut: 'EN_VERIFICATION' });
     var pid = nextId('Paies');
     rows('Agents').filter(function (a) { return a.actif === 'OUI'; }).forEach(function (a) {
-      var b = +a.salaire_base || 0;
-      add('Paies', { id: pid++, periode_id: id, agent_id: a.id, brut: b, retenues: 0, net: b, decision: 'EN_ATTENTE' });
+      var c = calcPaie(lignesAgent(a), 0, P, '');
+      add('Paies', { id: pid++, periode_id: id, agent_id: a.id, brut: c.brut, retenues: c.retenues, net: c.net, decision: 'EN_ATTENTE', lignes: JSON.stringify(c.lignes), rappel: 0 });
     });
     log(u, 'periode_ouvrir', q.annee + '-' + q.mois); return id;
   } },
   cpt_paies: { roles: CPT, fn: function (u, q) {
     var A = {}; rows('Agents').forEach(function (a) { A[a.id] = a; });
     return rows('Paies').filter(function (p) { return p.periode_id === String(q.periode_id); }).map(function (p) {
-      var a = A[p.agent_id]; p.agent = a ? a.nom + ' ' + a.prenoms : ''; p.matricule = a ? a.matricule : ''; return p;
+      var a = A[p.agent_id]; p.agent = a ? a.nom + ' ' + a.prenoms : ''; p.matricule = a ? a.matricule : '';
+      p.l = JSON.parse(p.lignes || '{}'); return p;
     });
   } },
   cpt_paie_modifier: { roles: CPT, fn: function (u, q) {
     var p = find('Paies', 'id', q.id), per = find('Periodes', 'id', p.periode_id);
     if (per.statut !== 'EN_VERIFICATION') throw new Error('Période verrouillée');
-    var brut = +q.brut, ret = +q.retenues;
-    upd('Paies', p._row, { brut: brut, retenues: ret, net: brut - ret }); return true;
+    var c = calcPaie(q.lignes || {}, q.rappel, params(), q.its);
+    upd('Paies', p._row, { brut: c.brut, retenues: c.retenues, net: c.net, rappel: c.rappel, lignes: JSON.stringify(c.lignes), infos: q.infos || '' });
+    log(u, 'paie_modifier', p.id); return c;
   } },
   cpt_decider: { roles: CPT, fn: function (u, q) {
     var p = find('Paies', 'id', q.id), per = find('Periodes', 'id', p.periode_id);
@@ -303,6 +341,31 @@ var ACTIONS = {
     return Object.keys(G).map(function (k) { return G[k]; });
   } }
 };
+
+
+/* ---------- Mise à jour du modèle de bulletin (sans danger si relancée) ---------- */
+function majBulletin() {
+  var R = rows('Rubriques');
+  if (!R.length || R[0].code !== 'SOLDE_BRUTE') {
+    var s = sh('Rubriques'); if (s.getLastRow() > 1) s.getRange(2, 1, s.getLastRow() - 1, SCHEMA.Rubriques.length).clearContent();
+    // sens : GAIN | RETENUE (déduite du net) | PATRONAL (affichée en retenue, non déduite)
+    [['SOLDE_BRUTE', 'SOLDE BRUTE', 'GAIN'], ['IND_RESIDENCE', 'IND. RESIDENCE', 'GAIN'], ['IND_LOGEMENT', 'IND. LOGEMENT', 'GAIN'], ['IND_RISQUE', 'IND RISQUE NON ABATTU', 'GAIN'],
+     ['PRIME_QUALIF', 'PRIME DE QUALIFICATION', 'GAIN'], ['PRIME_RENDEMENT', 'PRIME DE RENDEMENT', 'GAIN'], ['CNSS_PAT', 'FONDS CNSS DE RET PART PATRONALE', 'PATRONAL'],
+     ['ITS', 'ITS', 'RETENUE'], ['CNSS_OUV', 'FONDS NAT DE RET PART OUVR', 'RETENUE'], ['ORTB', 'ORTB', 'RETENUE']]
+      .forEach(function (r, i) { add('Rubriques', { code: r[0], libelle: r[1], sens: r[2], ordre: (i + 1) * 10 }); });
+  }
+  if (!rows('Parametres').length) {
+    // Taux déduits du bulletin modèle (sept. 2025) : 3,6 % ouvrier et 16,4 % patronal sur le brut ; barème ITS à confirmer auprès de la DGI.
+    [['taux_cnss_ouvrier', '3.6'], ['taux_cnss_patronal', '16.4'], ['bareme_its', '[[60000,0],[150000,10],[250000,15],[500000,20],[0,30]]'], ['arrondi_its', '100'], ['lieu_edition', 'Cotonou']]
+      .forEach(function (r) { add('Parametres', { cle: r[0], valeur: r[1] }); });
+  }
+  var B = rows('Banques');
+  if (!B.length || B[0].code === 'BANQUE_A') {
+    var sb = sh('Banques'); if (sb.getLastRow() > 1) sb.getRange(2, 1, sb.getLastRow() - 1, 2).clearContent();
+    [['BIIC', 'BIIC'], ['BOA', 'BOA Bénin'], ['ECOBANK', 'Ecobank Bénin'], ['UBA', 'UBA Bénin'], ['SGB', 'Société Générale Bénin'], ['CORIS', 'Coris Bank'], ['NSIA', 'NSIA Banque'], ['ORABANK', 'Orabank']]
+      .forEach(function (r) { add('Banques', { code: r[0], nom: r[1] }); });
+  }
+}
 
 /* ---------- Installation : créer les onglets et les données ---------- */
 function setup() {
@@ -346,15 +409,12 @@ function setup() {
      ['NOMINATION', 'Acte de nomination', 'CARRIERE'], ['TITULARISATION', 'Acte de titularisation', 'CARRIERE'], ['AVANCEMENT', "Acte d'avancement ou de promotion", 'CARRIERE'],
      ['SANCTION', 'Acte portant sanction', 'CARRIERE'], ['RECOMPENSE', 'Acte portant récompense', 'CARRIERE'], ['CHANGEMENT_POSITION', 'Acte de changement de position', 'CARRIERE'],
      ['BULLETIN_NOTES', 'Bulletin de notes', 'CARRIERE'], ['AFFECTATION', "Acte d'affectation", 'GESTION'], ['AUTRE', 'Autre pièce', 'GESTION']].forEach(function (r) { add('TypesPiece', { code: r[0], libelle: r[1], origine: r[2] }); });
-    [['TRAITEMENT', 'Traitement indiciaire / salaire de base', 'GAIN', 10], ['ALLOC_FAM', 'Allocations familiales', 'GAIN', 20], ['IND_RESID', 'Indemnité de résidence', 'GAIN', 30],
-     ['IND_LOGEMENT', 'Indemnité de logement', 'GAIN', 40], ['PRIME_POSTE', 'Prime de fonction ou de poste et de résultats', 'GAIN', 50], ['RETENUE_PENS', 'Retenue pour pension', 'RETENUE', 110], ['IMPOT', 'Impôt sur le traitement', 'RETENUE', 120]]
-      .forEach(function (r) { add('Rubriques', { code: r[0], libelle: r[1], sens: r[2], ordre: r[3] }); });
-    add('Banques', { code: 'BANQUE_A', nom: 'Banque A (à renommer)' }); add('Banques', { code: 'BANQUE_B', nom: 'Banque B (à renommer)' });
   }
 
+  majBulletin();
   var msg = 'Installation terminée.';
   if (!rows('Comptes').length) {
-    add('Agents', { id: 1, matricule: 'DEMO-001', nom: 'DEMO', prenoms: 'Agent', sexe: 'F', statut: 'FONCTIONNAIRE', structure: 'Direction de démonstration', emploi: 'Gestionnaire', salaire_base: 250000, date_prise_service: '2020-01-01', banque: 'BANQUE_A', rib: 'BJ000 0000 0000 0000', actif: 'OUI' });
+    add('Agents', { id: 1, matricule: 'DEMO-001', nom: 'DEMO', prenoms: 'Agent', sexe: 'F', statut: 'FONCTIONNAIRE', structure: 'DIRECTION DEPARTEMENTALE DE DEMONSTRATION', emploi: 'Infirmier', salaire_base: 109685, date_prise_service: '2020-01-01', banque: 'BIIC', rib: 'BJ000 00000 000000000000 00', actif: 'OUI', numero_cnss: '00 000 000 000 000', grade: 'A3-1', indice: 425, sit_mat: 'C', enfants: 0, corps: 'IAS/Infirmier Diplômé d\'Etat', ministere: '019 MINISTERE DE LA SANTE', service: 'Bloc-opératoire', ville: 'Cotonou', telephone: '00 00 00 00 00', ind_residence: 9500, ind_logement: 5000, ind_risque: 3000, prime_qualif: 0, prime_rendement: 0 });
     var p1 = newCompte('', 'admin', 'ADMIN'), p2 = newCompte('', 'drh', 'RH'), p3 = newCompte('', 'comptable', 'COMPTABLE'), p4 = newCompte(1, 'demo', 'AGENT');
     msg += '\n\nMots de passe temporaires (à changer à la première connexion) :\nadmin : ' + p1 + '\ndrh : ' + p2 + '\ncomptable : ' + p3 + '\ndemo (agent) : ' + p4 + '\n\nNotez-les maintenant : ils ne seront plus affichés.';
   }
