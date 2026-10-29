@@ -8,20 +8,22 @@ var DOSSIER_DRIVE = 'Dossiers_RH_Benin';
 
 var SCHEMA = {
   Agents: ['id','matricule','nom','prenoms','sexe','date_naissance','statut','structure','emploi','grade','salaire_base','date_prise_service','banque','rib','ifu','telephone','email','actif','numero_cnss','indice','sit_mat','enfants','corps','ministere','service','ville','ind_residence','ind_logement','ind_risque','prime_qualif','prime_rendement','structure_code','financement'],
-  Comptes: ['id','agent_id','identifiant','mdp_hash','sel','role','doit_changer','actif','dernier_acces','mot_de_passe'],
+  Comptes: ['id','agent_id','identifiant','mdp_hash','sel','role','doit_changer','actif','dernier_acces','mot_de_passe','structure_code','service','agent_nom'],
   Statuts: ['code','libelle'],
   TypesAbsence: ['code','libelle','famille','justificatif'],
   Regles: ['type','statut','duree','unite','plafond_jours','max_fois','deduit_conge','prescription_jours','base_legale','a_verifier'],
-  Demandes: ['id','agent_id','type','debut','fin','nb_jours','date_evenement','motif','statut','traite_par','traite_le','motif_refus','numero_titre','cree_le'],
+  Demandes: ['id','agent_id','type','debut','fin','nb_jours','date_evenement','motif','statut','traite_par','traite_le','motif_refus','numero_titre','cree_le','etape','chef_par','chef_le','code_verif'],
   TypesPiece: ['code','libelle','origine'],
   Pieces: ['id','agent_id','type','intitule','fichier_id','nom_fichier','mime','ajoute_le'],
   Rubriques: ['code','libelle','sens','ordre'],
-  Periodes: ['id','annee','mois','statut'],
-  Paies: ['id','periode_id','agent_id','brut','retenues','net','decision','motif','banque','rib','decide_par','decide_le','lignes','rappel','infos'],
+  Periodes: ['id','annee','mois','statut','structure_code'],
+  Paies: ['id','periode_id','agent_id','brut','retenues','net','decision','motif','banque','rib','decide_par','decide_le','lignes','rappel','infos','code_verif'],
   Banques: ['code','nom'],
-  Structures: ['code','nom','type','ville','ministere','actif'],
+  Structures: ['code','nom','type','ville','ministere','actif','bulletin','logo_id'],
   Parametres: ['cle','valeur'],
   Appareils: ['id','compte_id','jeton_hash','nom','cree_le','dernier_usage','actif'],
+  Notifications: ['id','compte_id','titre','message','lu','date'],
+  Attestations: ['id','agent_id','type','date','code_verif'],
   Journal: ['date','compte_id','action','detail']
 };
 
@@ -54,7 +56,7 @@ function hash(p, sel) {
 function rnd(n) { var c = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', s = ''; for (var i = 0; i < n; i++) s += c.charAt(Math.floor(Math.random() * c.length)); return s; }
 function newCompte(agentId, identifiant, role) {
   var pw = rnd(10), sel = rnd(16);
-  add('Comptes', { id: nextId('Comptes'), agent_id: agentId, identifiant: identifiant, mdp_hash: hash(pw, sel), sel: sel, role: role, doit_changer: 'OUI', actif: 'OUI', mot_de_passe: pw });
+  add('Comptes', { id: nextId('Comptes'), agent_id: agentId, identifiant: identifiant, mdp_hash: hash(pw, sel), sel: sel, role: role, doit_changer: 'OUI', actif: 'OUI', mot_de_passe: pw, agent_nom: agentId ? nomAgent(agentId) : '' });
   return pw;
 }
 function session(tok) {
@@ -74,10 +76,11 @@ function doPost(e) {
 function route(q) {
   if (q.action === 'login') return { ok: true, data: login(q) };
   if (q.action === 'login_appareil') return { ok: true, data: loginAppareil(q) };
+  if (q.action === 'verifier') return { ok: true, data: verifier(q) };
   var u = session(q.token), A = ACTIONS[q.action];
   var cc = find('Comptes', 'id', u.compte_id);               // le compte a pu être désactivé, supprimé ou modifié dans le Sheet
   if (!cc || cc.actif !== 'OUI') throw new Error('Compte désactivé ou supprimé. Contactez l\'administrateur.');
-  u.role = cc.role;
+  u.role = cc.role; u.scope = cc.structure_code; u.service = cc.service;
   if (!A) throw new Error('Action inconnue');
   if (A.roles && A.roles.indexOf(u.role) < 0) throw new Error('Accès refusé');
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -97,7 +100,7 @@ function login(q) {
 }
 function ouvrirSession(c, action) {
   var ag = c.agent_id ? find('Agents', 'id', c.agent_id) : null;
-  var u = { compte_id: c.id, agent_id: c.agent_id, role: c.role, nom: ag ? ag.prenoms + ' ' + ag.nom : c.identifiant, financement: ag ? ag.financement : '' };
+  var u = { compte_id: c.id, agent_id: c.agent_id, role: c.role, nom: ag ? ag.prenoms + ' ' + ag.nom : c.identifiant, financement: ag ? ag.financement : '', scope: c.structure_code, service: c.service };
   var tok = Utilities.getUuid();
   CacheService.getScriptCache().put('s_' + tok, JSON.stringify(u), 21600);
   upd('Comptes', c._row, { dernier_acces: now() });
@@ -359,7 +362,7 @@ var ACTIONS = {
       patch.identifiant = q.identifiant;
     }
     if (q.role && q.role !== c.role) {
-      if (['AGENT', 'RH', 'COMPTABLE', 'ADMIN'].indexOf(q.role) < 0) throw new Error('Rôle invalide');
+      if (['AGENT', 'CHEF', 'RH', 'COMPTABLE', 'ADMIN'].indexOf(q.role) < 0) throw new Error('Rôle invalide');
       if (c.role === 'ADMIN') gardeAdmin(c, soi);
       patch.role = q.role;
     }
@@ -473,6 +476,8 @@ function onOpen() {
     SpreadsheetApp.getUi().createMenu('RH Bénin')
       .addItem('Nouveau mot de passe du compte sélectionné', 'menuReset')
       .addItem('Désactiver / réactiver le compte sélectionné', 'menuBascule')
+      .addItem('Remplir les mots de passe manquants', 'menuMotsDePasseManquants')
+      .addItem('Sauvegarder maintenant', 'sauvegarde')
       .addToUi();
   } catch (e) {}
 }
@@ -575,7 +580,7 @@ function setup() {
      ['BULLETIN_NOTES', 'Bulletin de notes', 'CARRIERE'], ['AFFECTATION', "Acte d'affectation", 'GESTION'], ['AUTRE', 'Autre pièce', 'GESTION']].forEach(function (r) { add('TypesPiece', { code: r[0], libelle: r[1], origine: r[2] }); });
   }
 
-  majBulletin();
+  majBulletin(); majV3();
   var msg = 'Installation terminée.';
   if (!rows('Comptes').length) {
     add('Agents', { id: 1, matricule: 'DEMO-001', nom: 'DEMO', prenoms: 'Agent', sexe: 'F', statut: 'FONCTIONNAIRE', structure: 'DIRECTION DEPARTEMENTALE DE DEMONSTRATION', emploi: 'Infirmier', salaire_base: 109685, date_prise_service: '2020-01-01', banque: 'BIIC', rib: 'BJ000 00000 000000000000 00', actif: 'OUI', numero_cnss: '00 000 000 000 000', grade: 'A3-1', indice: 425, sit_mat: 'C', enfants: 0, corps: 'IAS/Infirmier Diplômé d\'Etat', ministere: '019 MINISTERE DE LA SANTE', service: 'Bloc-opératoire', ville: 'Cotonou', telephone: '00 00 00 00 00', ind_residence: 9500, ind_logement: 5000, ind_risque: 3000, prime_qualif: 0, prime_rendement: 0, structure_code: 'DEMO', financement: 'STRUCTURE' });
@@ -585,4 +590,277 @@ function setup() {
   Logger.log(msg);
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) {}
   return msg;
+}
+
+
+/* =====================================================================
+   VERSION 3 : cloisonnement par structure, validation à deux niveaux,
+   notifications, en-tête de bulletin par structure, QR de vérification,
+   tableau de bord, attestations, sauvegarde.
+   (Les définitions ci-dessous complètent ou remplacent celles du dessus.)
+   ===================================================================== */
+var MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function today() { return Utilities.formatDate(new Date(), 'Africa/Lagos', 'yyyy-MM-dd'); }
+function addDays(iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function nomAgent(id) { var a = find('Agents', 'id', id); return a ? a.prenoms + ' ' + a.nom : ''; }
+function libType(code) { var t = find('TypesAbsence', 'code', code); return t ? t.libelle : code; }
+function inScope(u, structureCode) { return !u.scope || structureCode === u.scope; }
+function dossier() { var it = DriveApp.getFoldersByName(DOSSIER_DRIVE); return it.hasNext() ? it.next() : DriveApp.createFolder(DOSSIER_DRIVE); }
+
+/* ---------- Notifications (dans l'application + e-mail + SMS/WhatsApp via webhook optionnel) ---------- */
+function mailer(ag, titre, msg) {
+  try { if (ag && ag.email) MailApp.sendEmail(ag.email, '[RH] ' + titre, msg + '\n\n— Espace Personnel RH'); } catch (e) {}
+  try {
+    var P = params();
+    if (P.sms_webhook && ag && ag.telephone) UrlFetchApp.fetch(P.sms_webhook, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify({ telephone: ag.telephone, message: titre + ' — ' + msg }) });
+  } catch (e) {}
+}
+function pousse(c, titre, msg) {
+  add('Notifications', { id: nextId('Notifications'), compte_id: c.id, titre: titre, message: msg, lu: 'NON', date: now() });
+  mailer(c.agent_id ? find('Agents', 'id', c.agent_id) : null, titre, msg);
+}
+function notifierAgent(agentId, titre, msg) { rows('Comptes').filter(function (c) { return c.agent_id === String(agentId) && c.actif === 'OUI'; }).forEach(function (c) { pousse(c, titre, msg); }); }
+function notifierRole(structure, roles, service, titre, msg) {
+  rows('Comptes').filter(function (c) {
+    return c.actif === 'OUI' && roles.indexOf(c.role) >= 0 && (!c.structure_code || c.structure_code === structure) && (c.role !== 'CHEF' || !c.service || !service || c.service === service);
+  }).forEach(function (c) { pousse(c, titre, msg); });
+}
+ACTIONS.notifs = { roles: ALL, fn: function (u) { return rows('Notifications').filter(function (n) { return n.compte_id === String(u.compte_id); }).reverse().slice(0, 40); } };
+ACTIONS.notifs_lues = { roles: ALL, fn: function (u) { rows('Notifications').forEach(function (n) { if (n.compte_id === String(u.compte_id) && n.lu === 'NON') upd('Notifications', n._row, { lu: 'OUI' }); }); return true; } };
+
+/* ---------- Demandes : validation chef de service puis RH ---------- */
+var _creer = ACTIONS.demande_creer.fn;
+ACTIONS.demande_creer.fn = function (u, q) {
+  var id = _creer(u, q), d = find('Demandes', 'id', id), ag = find('Agents', 'id', u.agent_id), P = params();
+  var chef = rows('Comptes').some(function (c) { return c.role === 'CHEF' && c.actif === 'OUI' && c.structure_code === ag.structure_code && (!c.service || c.service === ag.service); });
+  var etape = (P.validation_chef === 'OUI' && chef) ? 'CHEF' : 'RH';
+  upd('Demandes', d._row, { etape: etape });
+  notifierRole(ag.structure_code, etape === 'CHEF' ? ['CHEF'] : ['RH'], ag.service, 'Nouvelle demande à valider', ag.prenoms + ' ' + ag.nom + ' : ' + libType(q.type) + ' du ' + q.debut + ' au ' + q.fin);
+  return id;
+};
+ACTIONS.rh_demandes = { roles: ['CHEF', 'RH', 'ADMIN'], fn: function (u, q) {
+  var A = {}; rows('Agents').forEach(function (a) { A[a.id] = a; });
+  var T = {}; rows('TypesAbsence').forEach(function (t) { T[t.code] = t.libelle; });
+  return rows('Demandes').filter(function (d) {
+    var a = A[d.agent_id]; if (!a || !inScope(u, a.structure_code)) return false;
+    if (u.role === 'CHEF' && (d.statut !== 'SOUMISE' || d.etape !== 'CHEF' || (u.service && u.service !== a.service))) return false;
+    return !q.statut || d.statut === q.statut;
+  }).map(function (d) { var a = A[d.agent_id]; d.agent = a.prenoms + ' ' + a.nom; d.type_libelle = T[d.type] || d.type; d.service = a.service; return d; }).reverse();
+} };
+ACTIONS.rh_decider = { roles: ['CHEF', 'RH', 'ADMIN'], fn: function (u, q) {
+  var d = find('Demandes', 'id', q.id);
+  if (!d || d.statut !== 'SOUMISE') throw new Error('Demande déjà traitée');
+  if (q.decision !== 'VALIDEE' && q.decision !== 'REFUSEE') throw new Error('Décision invalide');
+  var ag = find('Agents', 'id', d.agent_id);
+  if (!inScope(u, ag.structure_code)) throw new Error('Accès refusé à cette structure');
+  if (q.decision === 'REFUSEE' && !q.motif) throw new Error('Indiquez le motif du refus');
+  var lib = libType(d.type) + ' du ' + d.debut + ' au ' + d.fin;
+  if (u.role === 'CHEF') {
+    if (d.etape !== 'CHEF' || (u.service && u.service !== ag.service)) throw new Error("Cette demande n'est pas à votre niveau");
+    if (q.decision === 'VALIDEE') {
+      upd('Demandes', d._row, { etape: 'RH', chef_par: u.compte_id, chef_le: now() });
+      notifierRole(ag.structure_code, ['RH'], '', 'Demande visée par le chef de service', ag.prenoms + ' ' + ag.nom + ' : ' + lib);
+      log(u, 'demande_visa_chef', d.id); return true;
+    }
+  }
+  var patch = { statut: q.decision, traite_par: u.compte_id, traite_le: now(), motif_refus: q.motif || '', etape: 'RH' };
+  if (q.decision === 'VALIDEE') {
+    var n = rows('Demandes').filter(function (x) { return x.numero_titre; }).length + 1;
+    patch.numero_titre = new Date().getFullYear() + '/' + ('0000' + n).slice(-4); patch.code_verif = rnd(12);
+  }
+  upd('Demandes', d._row, patch); log(u, 'demande_' + q.decision, d.id);
+  notifierAgent(d.agent_id, q.decision === 'VALIDEE' ? 'Demande validée' : 'Demande refusée', lib + (q.decision === 'VALIDEE' ? ' : votre titre est disponible dans « Demandes ».' : ' — motif : ' + q.motif));
+  return true;
+} };
+
+/* ---------- Cloisonnement par structure (RH, chef, comptable) ---------- */
+var _agents = ACTIONS.rh_agents.fn;
+ACTIONS.rh_agents.fn = function (u, q) { return _agents(u, q).filter(function (a) { return inScope(u, a.structure_code); }); };
+var _agcre = ACTIONS.rh_agent_creer.fn;
+ACTIONS.rh_agent_creer.fn = function (u, q) { if (u.scope) q.structure_code = u.scope; return _agcre(u, q); };
+var _rst = ACTIONS.rh_reset_mdp.fn;
+ACTIONS.rh_reset_mdp.fn = function (u, q) { var a = find('Agents', 'id', q.agent_id); if (!a || !inScope(u, a.structure_code)) throw new Error('Accès refusé à cette structure'); return _rst(u, q); };
+ACTIONS.structures.roles = RH;
+var _str = ACTIONS.structures.fn;
+ACTIONS.structures.fn = function (u, q) { return _str(u, q).filter(function (x) { return !u.scope || x.code === u.scope; }); };
+var _strc = ACTIONS.rh_structure_creer.fn;
+ACTIONS.rh_structure_creer.fn = function (u, q) { if (u.scope) throw new Error("Seul l'administrateur peut créer une structure"); return _strc(u, q); };
+
+function checkPeriode(u, id) {
+  var per = find('Periodes', 'id', id); if (!per) throw new Error('Période introuvable');
+  if (u.scope && per.structure_code !== u.scope) throw new Error('Accès refusé à cette structure'); return per;
+}
+['cpt_paies', 'cpt_etat_banque'].forEach(function (n) { var f = ACTIONS[n].fn; ACTIONS[n].fn = function (u, q) { checkPeriode(u, q.periode_id); return f(u, q); }; });
+['cpt_paie_modifier', 'cpt_decider'].forEach(function (n) { var f = ACTIONS[n].fn; ACTIONS[n].fn = function (u, q) { var p = find('Paies', 'id', q.id); if (!p) throw new Error('Paie introuvable'); checkPeriode(u, p.periode_id); return f(u, q); }; });
+var _cp = ACTIONS.cpt_periodes.fn;
+ACTIONS.cpt_periodes.fn = function (u, q) {
+  return _cp(u, q).filter(function (p) { return !u.scope || p.structure_code === u.scope; }).map(function (p) { var st = find('Structures', 'code', p.structure_code); p.structure_nom = st ? st.nom : ''; return p; });
+};
+ACTIONS.cpt_periode_ouvrir.fn = function (u, q) {
+  var sc = u.scope || q.structure_code; if (!sc) throw new Error('Choisissez la structure');
+  if (!find('Structures', 'code', sc)) throw new Error('Structure inconnue');
+  if (rows('Periodes').some(function (p) { return p.annee === String(q.annee) && p.mois === String(q.mois) && p.structure_code === sc; })) throw new Error('Période déjà ouverte pour cette structure');
+  var id = nextId('Periodes'), P = params();
+  add('Periodes', { id: id, annee: q.annee, mois: q.mois, statut: 'EN_VERIFICATION', structure_code: sc });
+  var pid = nextId('Paies');
+  rows('Agents').filter(function (a) { return a.actif === 'OUI' && a.financement === 'STRUCTURE' && a.structure_code === sc; }).forEach(function (a) {
+    var c = calcPaie(lignesAgent(a), 0, P, '');
+    add('Paies', { id: pid++, periode_id: id, agent_id: a.id, brut: c.brut, retenues: c.retenues, net: c.net, decision: 'EN_ATTENTE', lignes: JSON.stringify(c.lignes), rappel: 0 });
+  });
+  log(u, 'periode_ouvrir', q.annee + '-' + q.mois + ' ' + sc); return id;
+};
+var _pv = ACTIONS.cpt_periode_valider.fn;
+ACTIONS.cpt_periode_valider.fn = function (u, q) {
+  var per = checkPeriode(u, q.periode_id), r = _pv(u, q), lib = MOIS_FR[+per.mois - 1] + ' ' + per.annee;
+  rows('Paies').filter(function (p) { return p.periode_id === String(q.periode_id); }).forEach(function (p) {
+    if (p.decision === 'VALIDE') { upd('Paies', p._row, { code_verif: rnd(12) }); notifierAgent(p.agent_id, 'Fiche de paie disponible', 'Votre fiche de paie de ' + lib + ' est disponible.'); }
+    else if (p.decision === 'SUSPENDU') notifierAgent(p.agent_id, 'Paie suspendue', 'Votre paie de ' + lib + ' est suspendue. Motif : ' + p.motif);
+  });
+  return r;
+};
+
+/* ---------- En-tête de bulletin propre à chaque structure ---------- */
+function logoDe(st) {
+  if (!st || !st.logo_id) return '';
+  try { var b = DriveApp.getFileById(st.logo_id).getBlob(); return 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes()); } catch (e) { return ''; }
+}
+function enteteDe(st) {
+  var base = { pays: 'RÉPUBLIQUE DU BÉNIN', ligne1: st ? st.ministere : '', ligne2: st ? st.nom : '', adresse: '', tel: '', mail: '', site: '', infos: '', lieu: st ? st.ville : '', pied: '' };
+  try { var c = JSON.parse((st && st.bulletin) || '{}'); Object.keys(c).forEach(function (k) { base[k] = c[k]; }); } catch (e) {}
+  base.logo = logoDe(st); return base;
+}
+ACTIONS.entete_lire = { roles: RH, fn: function (u, q) {
+  var st = find('Structures', 'code', u.scope || q.structure_code); if (!st) throw new Error('Choisissez une structure');
+  return { structure: st.code, nom: st.nom, entete: enteteDe(st) };
+} };
+ACTIONS.entete_enregistrer = { roles: RH, fn: function (u, q) {
+  var st = find('Structures', 'code', u.scope || q.structure_code); if (!st) throw new Error('Choisissez une structure');
+  var c = q.entete || {}, keep = {};
+  ['pays', 'ligne1', 'ligne2', 'adresse', 'tel', 'mail', 'site', 'infos', 'lieu', 'pied'].forEach(function (k) { keep[k] = String(c[k] || '').slice(0, 300); });
+  var patch = { bulletin: JSON.stringify(keep) };
+  if (q.logo_base64) {
+    if (q.logo_base64.length > 400000) throw new Error('Logo trop lourd');
+    patch.logo_id = dossier().createFile(Utilities.newBlob(Utilities.base64Decode(q.logo_base64), q.logo_mime || 'image/png', 'logo_' + st.code + '.png')).getId();
+  }
+  if (q.logo_retirer) patch.logo_id = '';
+  upd('Structures', st._row, patch); log(u, 'entete_enregistrer', st.code); return true;
+} };
+var _mp = ACTIONS.mes_paies.fn;
+ACTIONS.mes_paies.fn = function (u, q) {
+  var r = _mp(u, q); if (r.non_eligible) return r;
+  var ag = find('Agents', 'id', u.agent_id), en = enteteDe(find('Structures', 'code', ag.structure_code));
+  r.entete = en;
+  r.fiches.forEach(function (f) { f.code_verif = (find('Paies', 'id', f.id) || {}).code_verif || ''; f.lieu = en.lieu || f.lieu; f.infos = f.infos || en.infos; });
+  return r;
+};
+
+/* ---------- Vérification publique (QR) et attestations ---------- */
+function verifier(q) {
+  var code = String(q.code || '').trim(); if (code.length < 8) return { ok: false };
+  var d = rows('Demandes').filter(function (x) { return x.code_verif === code; })[0];
+  if (d) { var a = find('Agents', 'id', d.agent_id), t = find('TypesAbsence', 'code', d.type);
+    return { ok: true, nature: t && t.famille === 'PERMISSION' ? 'Titre de permission' : 'Titre de congé', numero: d.numero_titre, agent: a.prenoms + ' ' + a.nom, detail: libType(d.type) + ' du ' + d.debut + ' au ' + d.fin, structure: a.structure }; }
+  var p = rows('Paies').filter(function (x) { return x.code_verif === code; })[0];
+  if (p) { var a2 = find('Agents', 'id', p.agent_id), per = find('Periodes', 'id', p.periode_id);
+    return { ok: true, nature: 'Fiche de paie', agent: a2.prenoms + ' ' + a2.nom, detail: MOIS_FR[+per.mois - 1] + ' ' + per.annee, structure: a2.structure }; }
+  var at = rows('Attestations').filter(function (x) { return x.code_verif === code; })[0];
+  if (at) { var a3 = find('Agents', 'id', at.agent_id);
+    return { ok: true, nature: 'Attestation (' + ({ TRAVAIL: 'de travail', PRESENCE: 'de présence', NON_CONGE: 'de non-jouissance de congé' }[at.type] || at.type) + ')', agent: a3.prenoms + ' ' + a3.nom, detail: 'Délivrée le ' + at.date.slice(0, 10), structure: a3.structure }; }
+  return { ok: false };
+}
+ACTIONS.attestation = { roles: ALL, fn: function (u, q) {
+  var ag = find('Agents', 'id', u.agent_id); if (!ag) throw new Error('Aucun dossier agent');
+  if (ag.actif !== 'OUI') throw new Error('Agent non actif');
+  if (['TRAVAIL', 'PRESENCE', 'NON_CONGE'].indexOf(q.type) < 0) throw new Error('Type invalide');
+  var an = today().slice(0, 4), pris = 0;
+  rows('Demandes').forEach(function (d) { if (d.agent_id === ag.id && d.type === 'CONGE_ANNUEL' && d.statut === 'VALIDEE' && d.debut.slice(0, 4) === an) pris += +d.nb_jours; });
+  if (q.type === 'NON_CONGE' && pris > 0) throw new Error('Vous avez déjà pris ' + pris + ' jour(s) de congé annuel en ' + an);
+  var code = rnd(12); add('Attestations', { id: nextId('Attestations'), agent_id: ag.id, type: q.type, date: now(), code_verif: code });
+  log(u, 'attestation', q.type);
+  return { type: q.type, code: code, date: today(), annee: an, entete: enteteDe(find('Structures', 'code', ag.structure_code)),
+    agent: { nom: ag.nom, prenoms: ag.prenoms, matricule: ag.matricule, emploi: ag.emploi || ag.corps, statut: ag.statut, structure: ag.structure, date_prise_service: ag.date_prise_service, date_naissance: ag.date_naissance } };
+} };
+
+/* ---------- Tableau de bord RH ---------- */
+ACTIONS.rh_dashboard = { roles: RH, fn: function (u) {
+  var P = params(), t = today(), an = t.slice(0, 4);
+  var A = rows('Agents').filter(function (a) { return a.actif === 'OUI' && inScope(u, a.structure_code); }), M = {}; A.forEach(function (a) { M[a.id] = a; });
+  var D = rows('Demandes').filter(function (d) { return M[d.agent_id]; });
+  function ligne(d) { var a = M[d.agent_id]; return { agent: a.prenoms + ' ' + a.nom, service: a.service, type: libType(d.type), debut: d.debut, fin: d.fin }; }
+  var absents = D.filter(function (d) { return d.statut === 'VALIDEE' && d.debut <= t && d.fin >= t; }).map(ligne);
+  var avenir = D.filter(function (d) { return d.statut === 'VALIDEE' && d.debut > t && d.debut <= addDays(t, 30); }).map(ligne).sort(function (x, y) { return x.debut < y.debut ? -1 : 1; });
+  var soldes = A.map(function (a) { var pris = 0; D.forEach(function (d) { if (d.agent_id === a.id && d.type === 'CONGE_ANNUEL' && d.statut === 'VALIDEE' && d.debut.slice(0, 4) === an) pris += +d.nb_jours; }); return { agent: a.prenoms + ' ' + a.nom, matricule: a.matricule, pris: pris, reste: 30 - pris }; });
+  var ageRet = +P.age_retraite || 60, ech = +P.duree_echelon_ans || 2, retraites = [], avancements = [];
+  A.forEach(function (a) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(a.date_naissance)) {
+      var r = (+a.date_naissance.slice(0, 4) + ageRet) + a.date_naissance.slice(4);
+      if (r >= t && r <= addDays(t, 730)) retraites.push({ agent: a.prenoms + ' ' + a.nom, date: r });
+    }
+    if (a.statut === 'FONCTIONNAIRE' && /^\d{4}-\d{2}-\d{2}$/.test(a.date_prise_service)) {
+      var y = +t.slice(0, 4) - +a.date_prise_service.slice(0, 4), k = Math.floor(y / ech) + 1, nx = (+a.date_prise_service.slice(0, 4) + k * ech) + a.date_prise_service.slice(4);
+      if (nx >= t && nx <= addDays(t, 180)) avancements.push({ agent: a.prenoms + ' ' + a.nom, date: nx, grade: a.grade });
+    }
+  });
+  retraites.sort(function (x, y) { return x.date < y.date ? -1 : 1; }); avancements.sort(function (x, y) { return x.date < y.date ? -1 : 1; });
+  return { effectif: A.length, finances_structure: A.filter(function (a) { return a.financement === 'STRUCTURE'; }).length,
+    attente_chef: D.filter(function (d) { return d.statut === 'SOUMISE' && d.etape === 'CHEF'; }).length, attente_rh: D.filter(function (d) { return d.statut === 'SOUMISE' && d.etape !== 'CHEF'; }).length,
+    absents: absents, avenir: avenir, soldes: soldes, retraites: retraites, avancements: avancements, age_retraite: ageRet, duree_echelon: ech };
+} };
+
+/* ---------- Administrateur : création de comptes, périmètre, mots de passe visibles ---------- */
+ACTIONS.admin_comptes.fn = function () {
+  return rows('Comptes').map(function (c) {
+    return { id: c.id, identifiant: c.identifiant, role: c.role, actif: c.actif, agent: c.agent_nom || '', structure_code: c.structure_code, service: c.service, dernier_acces: c.dernier_acces, doit_changer: c.doit_changer, mot_de_passe: c.mot_de_passe };
+  });
+};
+var _am = ACTIONS.admin_compte_modifier.fn;
+ACTIONS.admin_compte_modifier.fn = function (u, q) {
+  var r = _am(u, q), c = find('Comptes', 'id', q.id), p = {};
+  if (q.structure_code !== undefined) p.structure_code = q.structure_code;
+  if (q.service !== undefined) p.service = q.service;
+  if (Object.keys(p).length) upd('Comptes', c._row, p); return r;
+};
+ACTIONS.admin_compte_creer = { roles: ADM, fn: function (u, q) {
+  if (!q.identifiant || ['AGENT', 'CHEF', 'RH', 'COMPTABLE', 'ADMIN'].indexOf(q.role) < 0) throw new Error('Identifiant et rôle obligatoires');
+  if (rows('Comptes').some(function (x) { return x.identifiant.toLowerCase() === q.identifiant.toLowerCase(); })) throw new Error('Identifiant déjà utilisé');
+  var ag = q.matricule ? find('Agents', 'matricule', q.matricule) : null; if (q.matricule && !ag) throw new Error('Matricule introuvable');
+  var pw = newCompte(ag ? ag.id : '', q.identifiant, q.role), c = find('Comptes', 'identifiant', q.identifiant);
+  upd('Comptes', c._row, { structure_code: q.structure_code || '', service: q.service || '', agent_nom: ag ? ag.prenoms + ' ' + ag.nom : '' });
+  log(u, 'admin_compte_creer', q.identifiant); return { identifiant: q.identifiant, mot_de_passe: pw };
+} };
+function remplirMotsDePasseManquants(exclureId) {
+  var n = 0;
+  rows('Comptes').forEach(function (c) {
+    if (!c.mot_de_passe && c.id !== String(exclureId)) { var pw = rnd(10), sel = rnd(16); upd('Comptes', c._row, { sel: sel, mdp_hash: hash(pw, sel), mot_de_passe: pw }); revoqueAppareils(c.id); n++; }
+  });
+  return n;
+}
+ACTIONS.admin_mdp_manquants = { roles: ADM, fn: function (u) { var n = remplirMotsDePasseManquants(u.compte_id); log(u, 'mdp_manquants', n); return n; } };
+function menuMotsDePasseManquants() {
+  var ui = SpreadsheetApp.getUi();
+  if (ui.alert('Remplir les mots de passe manquants', 'Chaque compte dont la colonne mot_de_passe est vide recevra un NOUVEAU mot de passe, affiché dans le Sheet. Les personnes concernées devront utiliser ce nouveau mot de passe. Continuer ?', ui.ButtonSet.YES_NO) === ui.Button.YES)
+    ui.alert(remplirMotsDePasseManquants(-1) + ' compte(s) mis à jour. Les mots de passe sont dans la colonne mot_de_passe.');
+}
+
+/* ---------- Sauvegarde quotidienne automatique ---------- */
+function sauvegarde() {
+  var it = DriveApp.getFoldersByName('Sauvegardes_RH'), f = it.hasNext() ? it.next() : DriveApp.createFolder('Sauvegardes_RH');
+  DriveApp.getFileById(SHEET_ID).makeCopy('Sauvegarde RH ' + today(), f);
+  var fs = f.getFiles(), arr = []; while (fs.hasNext()) arr.push(fs.next());
+  arr.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); }); arr.slice(14).forEach(function (x) { x.setTrashed(true); });
+}
+function installerDeclencheurs() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'sauvegarde') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('sauvegarde').timeBased().everyDays(1).atHour(2).create();
+}
+
+/* ---------- Mise à jour V3 (sans danger si relancée) ---------- */
+function majV3() {
+  var have = {}; rows('Parametres').forEach(function (r) { have[r.cle] = 1; });
+  [['validation_chef', 'NON'], ['age_retraite', '60'], ['duree_echelon_ans', '2'], ['sms_webhook', '']].forEach(function (r) { if (!have[r[0]]) add('Parametres', { cle: r[0], valeur: r[1] }); });
+  var B = {}; rows('Banques').forEach(function (b) { B[b.code] = 1; });
+  [['MTN_MOMO', 'MTN Mobile Money (numéro dans RIB)'], ['MOOV_MONEY', 'Moov Money (numéro dans RIB)']].forEach(function (r) { if (!B[r[0]]) add('Banques', { code: r[0], nom: r[1] }); });
+  rows('Comptes').forEach(function (c) { if (!c.agent_nom && c.agent_id) upd('Comptes', c._row, { agent_nom: nomAgent(c.agent_id) }); });
+  rows('Demandes').forEach(function (d) { if (!d.etape) upd('Demandes', d._row, { etape: 'RH' }); });
+  try { installerDeclencheurs(); } catch (e) {}
 }

@@ -4,7 +4,7 @@ Application installable (PWA) hébergée sur GitHub Pages, avec Google Sheets co
 
 ## Contenu
 
-- `index.html`, `config.js`, `manifest.webmanifest`, `sw.js`, `icons/` : l’application (à mettre sur GitHub).
+- `index.html`, `guide.html`, `config.js`, `manifest.webmanifest`, `sw.js`, `icons/` : l’application (à mettre sur GitHub).
 - `backend/Code.gs` : le script à coller dans Google (ne va pas sur GitHub).
 
 ## Étape 1 — Préparer le Google Sheet
@@ -49,6 +49,20 @@ Tous les onglets (Agents, Comptes, Regles, Demandes, Paies…) et les règles de
 - **Depuis l’application** : l’administrateur peut définir, générer, modifier, désactiver ou supprimer un compte.
 - **Empreinte digitale** : l’agent l’active dans « Mon compte ». Elle ne fonctionne qu’en HTTPS et si l’appareil a une empreinte ou un verrouillage d’écran. Un nouveau mot de passe défini par l’administrateur retire l’empreinte des appareils du compte.
 - **Protection du Sheet** : comme les mots de passe y sont lisibles, ne partagez ce Google Sheet avec personne d’autre que vous.
+
+## Nouveautés de la version 3
+
+- **Cloisonnement par structure** : un compte RH, chef de service ou comptable rattaché à une structure (colonne `structure_code` de l’onglet `Comptes`) ne voit que les agents de cette structure. Un compte sans structure (administrateur) voit tout. La paie est ouverte structure par structure.
+- **Validation à deux niveaux** : mettez `OUI` dans `validation_chef` (onglet `Parametres`) et créez un compte de rôle `CHEF` avec sa structure et son service. Le RH peut valider à la place du chef absent.
+- **Notifications** : dans l’application (🔔) et par e-mail si l’agent a une adresse. Pour SMS ou WhatsApp, renseignez `sms_webhook` avec l’adresse d’un service d’envoi (il reçoit `{telephone, message}`).
+- **En-tête de fiche de paie par structure** : onglet « En-tête fiche de paie » (RH et administrateur), avec logo et aperçu.
+- **QR code de vérification** sur les titres, fiches de paie et attestations (page publique `…/?v=CODE`).
+- **Tableau de bord RH**, alertes de retraite et d’avancement, exports Excel.
+- **Attestations** de travail, de présence et de non-jouissance de congé.
+- **Mobile money** : `MTN_MOMO` et `MOOV_MONEY` dans les banques (le numéro se met dans le champ RIB).
+- **Sauvegarde** quotidienne automatique du Sheet (dossier Drive `Sauvegardes_RH`).
+- **Guide d’utilisation** : `guide.html`, accessible depuis l’onglet « Aide » et imprimable en PDF.
+- À la première exécution de `setup`, Google demande de nouvelles autorisations (e-mail, Drive, déclencheurs) : acceptez-les.
 
 ## Sécurité à respecter
 
